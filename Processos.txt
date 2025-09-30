@@ -1,0 +1,354 @@
+Alarme:
+#include <unistd.h> 
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+
+int tamanho(char *msg){
+    int i = 0;
+    while (msg[i] != '0')
+    {
+        i++;
+    }
+    return i;
+}
+	
+void ctrlz(int sigz){
+	write(1, "seilaaaa\n", tamanho("seilaaaa\n"));	
+
+}
+	
+void ctrlc(int signum){
+	write(1, "Voce esta tentando sair, mas nao vou\n", tamanho("Voce esta tentando sair, mas nao vou\n"));	
+	while(1);
+
+}
+	
+void manipulador(int sig){
+	write(1, "Alarme recebido!\n", tamanho("Alarme recebido!\n"));
+	exit(0);
+}
+
+int main(){
+
+    signal(SIGALRM, manipulador);
+    signal(SIGINT, ctrlc);
+    signal(SIGTSTP, ctrlz);
+
+
+    char *msg = malloc(50*sizeof(char));
+
+
+    alarm(10);
+    pause();
+
+    return 0;
+}
+
+//char *msg = write(1, "Ola mundo, ja pode AL MOSSAR? \n", tamanho("Ola mundo, ja pode AL MOSSAR? \n"));
+
+
+    //read(0, msg, 50);
+
+    //write(1, msg, tamanho(msg));
+    
+
+ ______________________________________________________________________ ______________________________________________________________________
+
+Fork:
+#include<unistd.h>
+#include<stdio.h>
+
+int main(){
+	
+	int PID;
+	PID = fork();
+	
+	if(PID == 0){
+	
+		printf("Bom dia, sou o filho -> Retorno do fork = %d, mas o meu pid é %d \n", PID, getpid());		//O pid do filho vai ser 0, ja o getpid ...
+	}else if(PID > 0){
+		printf("Codigo pai: Retorno do fork = %d, mas meu pid é %d \n", PID, getpid());	
+	}else{
+		printf("ERRO, VOCE É BROCHA \n");
+	}
+	
+		
+	return 0;
+	
+}
+ ____________________________________________________________________________________________________________________________________________
+
+Memoria compartihada:
+#include<unistd.h>
+#include<stdio.h>
+#include<string.h>
+#include<sys/shm.h>
+
+void main(int argc, char *argv[]){
+
+	char *buff;	//Acessar a regiao de memoria compartilhada por meio desse buff
+	int key = ftok(".", 'A');		//Criando a chave da memoria compartilhada, da para colocar "." ou um diretorio (ex.: /home/desktop/teste.c)	|| Nao entendi o ponto, ver com ele o que é
+	int shmid = shmget(key, 50*sizeof(char), IPC_CREAT | 0644);	//IPC_CREAT: ... (calma, nao entendi)
+	
+	buff = 	shmat(shmid, 0, 0);	//shmat: vincular || shmid: ... (nao entendi), os 0 depois doo shmid sao para colocar enderecos especificos
+
+	if(argv[1] != NULL && strcmp(argv[1], "apagar")){
+		strcpy(buff, argv[1]);	//pega o que ta no argv e copia para a memoria compartilhada
+		
+	}else if((argc > 1) && !strcmp(argv[1], "apagar")){	//Se a pessoa digitar "apagar"		(nao entendi porque do ! antes do strcmp)
+		//strcpy(buff, " ");	//Ele substitui o que tava antes por um espaco vazio, ou seja, apaga o ultmo parametro digitado
+		
+		shmdt (buff); //Desvincular a regiao de memoria compartilhada
+		shmctl(shmid, IPC_RMID, NULL);	//shmctl: Faz diversas coisas, quando se trata de memoria compartilhada, IPC_RMID: destroi a regiao de memoria compartilhada com o id "shmid")
+			
+	}else{
+		printf("->> %s \n", buff);	//Se nao achar nada, so mostra o conteudo do buff
+	}
+}
+____________________________________________________________________________________________________________________________________________
+
+Mini Shell:
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(){
+
+    char c;
+    //int status;
+    printf("Bem vindo ao mini Shelldon. Selecione uma opcao para comecar: \n");
+    printf("1- ls: Lista todos os arquivos do diretório, \n2- ps: mostra uma série de informações sobre os processos, \n3- ifconfig: mostra informações do dispositivo de redes e ip, \n4- cd: Acessa a pasta Exercicios, 5-  \n");
+    read(0, &c, sizeof(char)); //0, aonde ta salvando, sizeof(tipo da variavel que ta salvando)
+    
+    int pid = fork();
+
+    if (c == '1')
+    {
+        if (pid == 0)
+        {
+            execl("/bin/ls", "ls", NULL, NULL); //"caminho", "processo", *argumento da funcao (se nao tiver argumento, é NULL), NULL
+        }else if (pid < 0){
+            printf("Erro ao criar o processo \n");
+        }
+    }
+
+    else if(c == '2'){
+        execl("/bin/ps", "ps", NULL, NULL);
+    }else if(c == '3'){
+        execl("/sbin/ifconfig", "ifconfig", NULL, NULL);
+    }else if(c == '4'){
+    	execl("/sbin/cd", "/media/a2269333/home/5° Semestre/SO-v2/Exercicios", NULL, NULL);
+    }
+    return 0;
+}	
+____________________________________________________________________________________________________________________________________________
+
+Pipe:
+#include<unistd.h>
+#include<stdio.h>
+
+void main(){
+
+	int fd[2];	//pipe é um vetor de tamanho 2 (leitura e escrita)
+	pipe(fd);
+
+	if(fork() > 0){
+		char *msg = "Simba sou seu pai \n";		//pai
+		write(fd[1], msg, 20);	//Escrevendo na estremidade de escrita do pipe (escrita: 1)
+	
+	}else{
+		char buff[1024];		
+		read(fd[0], buff, 1024);	//Escrevendo na estremidade de leitura do pipe (leitura: 0)
+		printf("Msg do Mufasa: %s", buff);	//filho
+	}
+
+}
+
+// escrita no pai ---------------> pipe recebe a msg ---------------> leitura no filho
+____________________________________________________________________________________________________________________________________________
+
+PrintFork:
+
+#include <unistd.h>
+#include <sys/wait.h>
+
+void main(){
+
+	int pid = fork();
+	if(pid == 0){
+		printf("Filho: Vou modificar meu comportamento para rodar hello world! \n");
+		execl("hello", " ", NULL);	//Substitui todo o restante do if pelo codigo que esta no arquivo "hello"
+		printf("Xii marquinho !!!\n");	//Ou seja, nao ira rodar esse printf
+	
+	}else if(pid > 0){
+	
+		wait(NULL);	//Espera o filho executar o hello world
+		printf("FIlho executou um hello world");
+	
+	}else{
+		printf("Erro \n\n");
+	
+	
+	}
+	
+}
+____________________________________________________________________________________________________________________________________________
+
+Wait:
+
+#include<unistd.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<sys/wait.h>
+
+int main(){
+
+	int status;
+	int pid = fork();
+	
+	if(pid > 0){
+		printf("Codigo do pai. PID %d \n", getpid());
+		wait(&status);
+		
+		printf("Meu filho terminou com exit(%d)\n", WEXITSTATUS(status));
+		
+		if(WIFSIGNALED(status)){		//Ver se o processo filho foi encerrado por um kill (PRA MATAR POR KILL, TENHO QUE ABRIR UM 2° TERMINAL E DIGITAR "KILL" + O PID DO FILHO)
+			print("FIlho morto por KILL \n");
+		
+		}else if(WIFEXITED(status)){	//Ver se o filho terminou normalmente
+			printf("Filho terminou normalmente");
+		}	
+		
+	}else if(pid == 0){
+		printf("Codigo do FIlho. PID %d\n", getpid());
+		sleep(10);
+		exit(10);
+		
+	}else{
+		printf("ERRO! \n");
+		exit(-10);
+	}
+
+}
+____________________________________________________________________________________________________________________________________________
+
+WaitNeto:
+
+/*Escrever um programa C que cria uma árvore de 3 processos, 
+onde o processo A faz um fork() criando um processo B, 
+o processo B, por sua vez, faz um fork() criando um processo C.
+Cada processo deve exibir uma mensagem "Eu sou o processo XXX, filho de YYY", onde XXX e YYY são PIDs de processos. 
+Utilizar wait() para garantir que o processo C imprima sua resposta antes do B, e que o processo B imprima sua resposta antes do A. 
+Utilizar sleep() (man 3 sleep) para haver um intervalo de 1 segundo entre cada mensagem impressa.*/
+
+#include<unistd.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<sys/wait.h>
+
+int main(){
+
+	int pid = fork();
+	int status;
+	
+	if(pid > 0){
+		printf("Sou o processo A de pid %d, filho de %d \n", getpid(), getppid());		//getpid retorna o proprio processo, ja o getppid retorna o processo do pai
+		wait(&status);
+		sleep(1);
+
+	}else if(pid == 0){
+		printf("Sou o processo B de pid %d, filho de %d \n", getpid(), getppid());
+		sleep(1);
+		
+		int pid2 = fork();
+		
+		if(pid2 > 0){
+			wait(&status);
+			sleep(1);
+	
+		}else if(pid2 == 0){
+			
+			sleep(1);
+			printf("Sou o processo C de pid %d, filho de %d \n", getpid(), getppid());		//Quando é o neto, nao precisa de getpid2 ou getppid2
+			exit(0);
+			
+		}else{
+			printf("Erro na criacao do neto \n");
+			exit(-10);
+			}
+			
+	}else{
+		printf("Erro na criacao do filho \n");
+		exit(-10);
+		}
+}
+____________________________________________________________________________________________________________________________________________
+
+Write/Read:
+
+#include <unistd.h>
+#include <signal.h>
+#include <stdlib.h>
+
+int contador = 0;
+
+int meuLen(char *str){
+    int i = 0;
+    while(str[i]!= '\0')
+    i++;
+    return i;
+}
+
+void saiPrograma (int signal){
+    int sair;
+    contador++;
+
+    if (contador == 3)    {
+        write(1, "Deseja realmente sair? [Y/n]: \n\n", meuLen("Deseja realmente sair? [Y/n]: \n\n"));
+        alarm(20);
+        read(0, &sair, sizeof(int));
+        if (sair = 'y')
+        {
+            write(1, "Saindo......", meuLen("Saindo......"));
+            exit(0);
+        } else if (sair = 'n')
+        {
+            write(1, "Continuando...", meuLen("Continuando..."));
+        } else{
+            write(1, "Demorou muito para responder. Saindo......", meuLen("Demorou muito para responder. Saindo......"));
+        }
+        
+        
+    }
+
+
+}
+
+void mostraC(int signal){
+
+    int cont = contador + '0';
+    write(1, "Voce apertou Ctrl-C ", meuLen("Voce apertou Ctrl-C"));
+    write(1, &cont, 1);
+    write(1, "vezes", meuLen("vezes"));
+}
+
+void pulsoLRM(int signal){
+    write(1, "Ta funcionando ai?\n\n", meuLen("Ta funcionando ai?\n\n"));
+}
+int main(int argc, char* argv[])
+{
+
+    signal(SIGINT, saiPrograma);
+    signal(SIGTSTP, mostraC);
+    signal(SIGALRM, pulsoLRM);
+
+  while(1){
+    alarm(5);
+    pause();
+  }
+
+  return 0;
+
+
+}
